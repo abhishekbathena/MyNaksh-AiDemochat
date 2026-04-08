@@ -20,11 +20,36 @@ npm run android
 npm run ios
 ```
 
-## Stack notes (for reviewers)
+## Technical notes (assessment)
 
-- **React Native New Architecture** — Enabled in `android/gradle.properties` (`newArchEnabled=true`). **Reanimated 4.x** requires Fabric; it aligns with the assessment’s “New Architecture + Reanimated 3+” intent (v4 is the current line for recent RN versions).
-- **Reanimated** — Animations use shared values and worklets on the **UI thread** (via `react-native-worklets`). Babel: `react-native-worklets/plugin` is listed **last** in `babel.config.js` (required for Reanimated 4).
-- **Gesture handling** — `react-native-gesture-handler` is imported first in `index.js`. The app root is wrapped in `GestureHandlerRootView` in `App.tsx`. Pan/long-press logic will use `Gesture` APIs with Reanimated `useSharedValue` / `useAnimatedStyle` so gesture updates stay off the JS thread where appropriate.
-- **State** — **Redux Toolkit** with a **normalized** shape: `state.chat.chats` stores threads with `messageIds` only, and `state.chat.messages` stores message entities keyed by id. Initial payload comes from `src/data/initialMessages.ts`.
+### How Reanimated 3+ was used
+
+The brief asks for **Reanimated 3+**; this project targets **React Native 0.84** with the **New Architecture**, so it uses **Reanimated 4.x** (same mental model as v3: shared values, worklets, UI-thread animation).
+
+- **Shared values** (`useSharedValue`) drive swipe translation, reply-icon reveal, and the emoji reaction bar open/close animation.
+- **Worklets** run on the **UI thread** via `useAnimatedStyle`, `withSpring`, `withTiming`, and `measure` (for positioning the reaction bar from the pressed bubble).
+- **Babel**: `react-native-worklets/plugin` is listed **last** in `babel.config.js` (required for Reanimated 4).
+
+Heavy interaction code lives mainly in `src/screens/ChatThreadScreen.tsx` (swipe-to-reply, reactions). Only small bridges use `runOnJS` when Redux or React state must update from a gesture.
+
+### Gesture handling approach
+
+- **Library**: `react-native-gesture-handler` — imported **first** in `index.js`; root wrapped in **`GestureHandlerRootView`** in `App.tsx`.
+- **Swipe-to-reply**: `Gesture.Pan()` on each message bubble; translation is clamped (incoming: right; outgoing: left). On release, `withSpring` resets position; crossing a threshold triggers reply via `runOnJS`. Updates run as **worklets** on the UI thread.
+- **Reactions**: `Gesture.LongPress()` combined with pan via `Gesture.Simultaneous`; long-press uses Reanimated **`measure()`** on an animated ref to place the emoji bar.
+- **Why UI thread**: Pan/long-press updates and spring animations stay off the JS thread for smooth frames; JS runs only for state updates (reply target, reactions, etc.).
+
+### State management choice (Redux)
+
+**Redux Toolkit** (`@reduxjs/toolkit` + `react-redux`) is used for predictable, inspectable global state.
+
+- **Normalized chat model**: `state.chat.chats` holds thread metadata and **`messageIds` only**; **`state.chat.messages`** is a map of message id → message entity. Lists render by walking `messageIds` and looking up entities (see `src/store/chat/selectors.ts`).
+- **Why not Zustand / Context**: Redux fits multi-screen flows (list → thread), time-travel debugging, and clear action boundaries for messages, reactions, and AI feedback. Context would re-render broadly; Zustand would also work but Redux matches common team patterns for this assessment.
+
+Seed data for threads and messages: `src/data/initialChatList.ts`.
+
+### React Native New Architecture
+
+Enabled in `android/gradle.properties` (`newArchEnabled=true`). Reanimated 4 expects Fabric; this matches the assessment stack.
 
 ---
