@@ -1,14 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { safeAreaBackground, screenSurface } from '../theme/colors';
 import { useAppSelector } from '../store/hooks';
 import {
   selectChatThreads,
@@ -52,8 +46,10 @@ export function ChatListScreen({
     });
   }, [threads, tab, search]);
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -113,11 +109,11 @@ export function ChatListScreen({
         </View>
 
         <View style={styles.searchRow}>
-          <View style={styles.countryPill}>
+          {/* <View style={styles.countryPill}>
             <Text style={styles.countryText}>+91</Text>
             <Text style={styles.countryChevron}>▾</Text>
-          </View>
-          <View style={styles.searchInputWrap}>
+          </View> */}
+          {/* <View style={styles.searchInputWrap}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
               value={search}
@@ -129,13 +125,16 @@ export function ChatListScreen({
           </View>
           <Pressable style={styles.plusBtn}>
             <Text style={styles.plusText}>＋</Text>
-          </Pressable>
+          </Pressable> */}
         </View>
 
         <FlatList
           data={data}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: 86 + insets.bottom },
+          ]}
           renderItem={({ item }) => {
             const last = lastById[item.id];
             const time = formatTime(last?.timestamp);
@@ -177,7 +176,7 @@ export function ChatListScreen({
           }}
         />
 
-        <View style={styles.bottomNav}>
+        {/* <View style={[styles.bottomNav, { paddingBottom: 10 + insets.bottom }]}>
           <View style={styles.navItem}>
             <Text style={styles.navIcon}>▦</Text>
           </View>
@@ -193,15 +192,15 @@ export function ChatListScreen({
           <View style={styles.navItem}>
             <Text style={styles.navIcon}>📅</Text>
           </View>
-        </View>
+        </View> */}
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: safeAreaBackground },
+  root: { flex: 1, backgroundColor: screenSurface },
 
   header: {
     paddingHorizontal: 16,

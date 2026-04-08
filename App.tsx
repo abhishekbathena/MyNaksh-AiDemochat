@@ -11,15 +11,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { RootScreen } from './src/screens/RootScreen';
 import { store } from './src/store/store';
+import { safeAreaBackground } from './src/theme/colors';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const barStyle = isDarkMode ? 'light-content' : 'dark-content';
+  const androidStatusBg = isDarkMode ? '#1A1D26' : safeAreaBackground;
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: androidStatusBg }]}>
       <Provider store={store}>
         <SafeAreaProvider>
-          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+          <StatusBar
+            barStyle={barStyle}
+            backgroundColor={androidStatusBg}
+            translucent={false}
+          />
           <RootScreen />
         </SafeAreaProvider>
       </Provider>

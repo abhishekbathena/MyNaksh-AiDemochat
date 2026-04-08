@@ -6,7 +6,6 @@ import {
   LayoutAnimation,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { BlurView } from '@react-native-community/blur';
@@ -36,6 +36,7 @@ import {
   toggleAIDislikeChip,
 } from '../store/chat/chatSlice';
 import { selectChatById, selectMessagesByChatId } from '../store/chat/selectors';
+import { safeAreaBackground, screenSurface, threadBackground } from '../theme/colors';
 
 function formatTimeBubble(ts: number) {
   const d = new Date(ts);
@@ -348,6 +349,7 @@ export function ChatThreadScreen({
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [reactionTarget, setReactionTarget] = useState<{
     messageId: string;
     x: number;
@@ -494,11 +496,25 @@ export function ChatThreadScreen({
   const onSubmitRating = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setEndOpen(false);
-    Alert.alert('Rating captured', `Thanks! You rated this session ${rating || 0}/5.`);
-  }, [rating]);
+    const stars = rating || 0;
+    const now = Date.now();
+    dispatch(
+      addMessage({
+        chatId,
+        message: {
+          id: `sys-end-${now}`,
+          sender: 'system',
+          type: 'event',
+          timestamp: now,
+          text: `Chat ended. Rating given: ${stars}/5.`,
+        },
+      }),
+    );
+    Alert.alert('Rating captured', `Thanks! You rated this session ${stars}/5.`);
+  }, [chatId, dispatch, rating]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>
         <View style={styles.header}>
           <Pressable onPress={onBack} style={styles.backBtn} hitSlop={10}>
@@ -519,13 +535,20 @@ export function ChatThreadScreen({
           </Pressable>
         </View>
 
-        <View style={styles.threadBg}>
-          <FlatList
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoid}
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 48 : 8}
+        >
+          <View style={styles.threadBg}>
+            <FlatList
             inverted
             ref={listRef}
             data={data}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             renderItem={({ item }) => {
               const outgoing = isOutgoing(item);
               return (
@@ -554,64 +577,54 @@ export function ChatThreadScreen({
             }}
           />
 
-          {reactionTarget ? (
-            <View style={styles.reactionsOverlay} pointerEvents="box-none">
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={closeReactions}
-              />
+            {reactionTarget ? (
+              <View style={styles.reactionsOverlay} pointerEvents="box-none">
+                <Pressable
+                  style={StyleSheet.absoluteFill}
+                  onPress={closeReactions}
+                />
 
-              <Animated.View
-                style={[
-                  styles.reactionsBar,
-                  {
-                    left: Math.min(
-                      Math.max(
-                        12,
-                        reactionTarget.x +
-                          reactionTarget.width / 2 -
-                          reactionsBarWidth / 2,
+                <Animated.View
+                  style={[
+                    styles.reactionsBar,
+                    {
+                      left: Math.min(
+                        Math.max(
+                          12,
+                          reactionTarget.x +
+                            reactionTarget.width / 2 -
+                            reactionsBarWidth / 2,
+                        ),
+                        Math.max(12, windowWidth - 12 - reactionsBarWidth),
                       ),
-                      Math.max(12, windowWidth - 12 - reactionsBarWidth),
-                    ),
-                    top: Math.max(12, reactionTarget.y - 56),
-                  },
-                  reactionsBarStyle,
-                ]}
-              >
-                {REACTIONS.map(e => (
-                  <Pressable
-                    key={e}
-                    onPress={() => onPickReaction(e)}
-                    style={styles.reactionBtn}
-                  >
-                    <Text style={styles.reactionBtnText}>{e}</Text>
-                  </Pressable>
-                ))}
-              </Animated.View>
-            </View>
-          ) : null}
-        </View>
-
-        {endOpen ? (
-          <View style={styles.endOverlay}>
-            <BlurView style={StyleSheet.absoluteFill} blurType="light" blurAmount={12} />
-            <View style={styles.endCard}>
-              <Text style={styles.endTitle}>Thank You</Text>
-              <Text style={styles.endSub}>Please rate your session</Text>
-              <Stars value={rating} onChange={setRating} />
-              <Pressable onPress={onSubmitRating} style={styles.submitBtn}>
-                <Text style={styles.submitText}>Submit</Text>
-              </Pressable>
-            </View>
+                      top: Math.max(12, reactionTarget.y - 56),
+                    },
+                    reactionsBarStyle,
+                  ]}
+                >
+                  {REACTIONS.map(e => (
+                    <Pressable
+                      key={e}
+                      onPress={() => onPickReaction(e)}
+                      style={styles.reactionBtn}
+                    >
+                      <Text style={styles.reactionBtnText}>{e}</Text>
+                    </Pressable>
+                  ))}
+                </Animated.View>
+              </View>
+            ) : null}
           </View>
-        ) : null}
 
-        <KeyboardAvoidingView
-          behavior={Platform.select({ ios: 'padding', android: undefined })}
-          keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
-        >
-          <View style={styles.composer}>
+          <View
+            style={[
+              styles.composer,
+              {
+                paddingBottom: 10 + insets.bottom,
+                marginBottom: 14,
+              },
+            ]}
+          >
             {replyToMessage ? (
               <View style={styles.replyPreview}>
                 <View style={styles.replyPreviewLeft}>
@@ -659,14 +672,31 @@ export function ChatThreadScreen({
             </Pressable>
           </View>
         </KeyboardAvoidingView>
+
+        {endOpen ? (
+          <View style={styles.endOverlay}>
+            <BlurView style={StyleSheet.absoluteFill} blurType="light" blurAmount={12} />
+            <View style={[styles.endCard, { marginBottom: insets.bottom }]}>
+              <Text style={styles.endTitle}>Thank You</Text>
+              <Text style={styles.endSub}>Please rate your session</Text>
+              <Stars value={rating} onChange={setRating} />
+              <Pressable onPress={onSubmitRating} style={styles.submitBtn}>
+                <Text style={styles.submitText}>Submit</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: safeAreaBackground },
+  root: { flex: 1, backgroundColor: screenSurface },
+  keyboardAvoid: {
+    flex: 1,
+  },
 
   header: {
     height: 56,
@@ -702,7 +732,7 @@ const styles = StyleSheet.create({
 
   threadBg: {
     flex: 1,
-    backgroundColor: '#F6F7FA',
+    backgroundColor: threadBackground,
   },
   listContent: {
     paddingHorizontal: 12,
